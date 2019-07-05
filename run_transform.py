@@ -1,9 +1,9 @@
 
-from BagTransform import BagTransform
+from bag_transform import BagTransform
 
 RUN = BagTransform()
 
-root 		= '/media/jean-michel/My Book/EXPERIMENTS/Experiment_SOS_v2'
+root 		= '/media/jean-michel/MyBook/EXPERIMENTS/Experiment_ChirpLog_HeadFree/Vid'
 vid_name 	= 'vidData'
 time_name 	= 't_v'
 debug 		= False

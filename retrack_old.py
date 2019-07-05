@@ -10,7 +10,7 @@ class Retracker:
 		self.save 		= ''
 		self.files		= {}
 		self.n_file 	= {}
-		#
+
 		os.environ["RETRACK"] = '1' # set Kinefly to retrack
 		
 	def run(self,root,filespec,duration):
@@ -41,9 +41,9 @@ class Retracker:
 			print "   " , os.environ["BAGFILE"]
 			
 			os.system(record_cmd) # start to record
-			time.sleep(3)
+			time.sleep(5)
 			os.system('roslaunch Kinefly main.launch &') # run Kinefly
-			time.sleep(self.duration)
+			time.sleep(self.duration + 20)
 			os.system('rostopic pub - 1 kinefly/command Kinefly/MsgCommand exit') # stop Kinefly
 			#os.system('rosnode kill /' + bagfile )
 			os.system('killall -9 rosmaster')  # kill ros

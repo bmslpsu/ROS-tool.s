@@ -18,7 +18,6 @@ class BagTransform:
 		self.file_path 	= ''
 		self.file_root	= ''
 		self.file_name 	= ''
-		self.file_ext 	= ''
 		self.bag_path 	= ''
 		self.bag_root 	= ''
 		self.fullpath	= {}
