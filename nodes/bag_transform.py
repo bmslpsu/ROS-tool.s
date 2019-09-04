@@ -1,10 +1,12 @@
 import glob, os
 import numpy as np
 import h5py
+import cv2
+
 from ros import rosbag
 import rospy
 from cv_bridge import CvBridge
-import cv2
+
 
 class BagTransform:
 	def __init__(self):
