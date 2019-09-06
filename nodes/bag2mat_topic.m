@@ -37,7 +37,7 @@ n.Files = length(FILES); % # of .bag files to parse
 
 % Set output directory to store .mat files
 matdir = [PATH 'mat']; % export directory to save .mat files
-[status,msg,~] = mkdir(matdir); % create directory for .mat files
+[status,~,~] = mkdir(matdir); % create directory for .mat files
 if status
     %warning(msg)
     %disp(['Folder located: ' matdir])
@@ -73,9 +73,19 @@ for kk = 1:n.Files
     Time  	= cell(1,n.Topic); % time for flystate & AI
     for jj = 1:n.Topic
         Topic = select(Bag, 'Topic', topics{jj}); % get topics
-        Msg{jj} = readMessages(Topic,'DataFormat',msgtypes(2)); % get messages
+        Msg{jj} = readMessages(Topic,'DataFormat','struct'); % get messages
         Time{jj} = table2array(Topic.MessageList(:,1)); % get raw time
     end
+
+    img             = Msg{jj}{1,1};
+    msg             = rosmessage(img.MessageType);
+    msg.Height      = img.Height;
+    msg.Width       = img.Width;
+    msg.Encoding    = img.Encoding;
+    msg.IsBigendian	= img.IsBigendian;
+    msg.Step        = img.Step;
+    msg.Data        = img.Data;
+    test            = readImage(msg);          
     
    	% Initialize variables
     n.Frame  	= length(Msg{1}); % # of video frames
