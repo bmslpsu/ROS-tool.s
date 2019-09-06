@@ -19,7 +19,7 @@ function [Vid,VidTime,FlyState,AI,FILES] = bag2mat_topic(varargin)
 %           - for kinefly export RGB video
 %---------------------------------------------------------------------------------------------------------------------------------
 clear;clc
-root = 'C:\Users\boc5244\Documents\BoxSync\Box Sync\Research\bags\9-4-2019';
+root = 'Q:\Box Sync\Research\bags\9-4-2019';
 %---------------------------------------------------------------------------------------------------------------------------------
 % % Allow user to set root directory
 % if nargin==0
@@ -39,23 +39,16 @@ n.Files = length(FILES); % # of .bag files to parse
 matdir = [PATH 'mat']; % export directory to save .mat files
 [status,msg,~] = mkdir(matdir); % create directory for .mat files
 if status
-    warning(msg)
-    disp(['Folder located: ' matdir])
+    %warning(msg)
+    %disp(['Folder located: ' matdir])
 else
     error('Directory not created')
 end
 
-% % Topic information: [video , flystate, analog in]
-% if version
-%     TopicList = {'/kinefly/image_output','/kinefly/flystate','/stimulus/ai'}';
-% else
-%     TopicList = {'/camera/image_raw','/kinefly/flystate','/stimulus/ai'}';
-% end
-
-% TopicType = {'CompressedImage','struct','struct'}';
+ImageTopics = ["/camera/image_raw" ; "/kinefly/image_output"];
 % n.Topic = length(TopicList); % # of topics in .bag files
 
-W = waitbar(0/n.Files,'Saving data...');
+% W = waitbar(0/n.Files,'Saving data...');
 tic
 for kk = 1:n.Files
  	clear Vid VidTime FlyState AI Time Msg Topic Bag syncTime
@@ -65,14 +58,22 @@ for kk = 1:n.Files
  	msgtypes    = string(Bag.AvailableTopics.MessageType); % topic types
     n.Topic     = size(topics,1); % of topics
     
+    % Determine message types (image or struct) % rearrange so image comes first
+    for jj = 1:length(ImageTopics)
+        msgtypes(strcmp(topics,ImageTopics(jj))) = "CompressedImage";
+    end
+    msgtypes(~strcmp(msgtypes,"CompressedImage")) = 'struct';
+    [msgtypes,topI] = sort(msgtypes);
+    topics = topics(topI);
+    
     disp('Extracting topics:')
     disp(topics)
     
-    Msg         = cell(1,n.Topic); % messages for each topic
-    Time        = cell(1,n.Topic); % time for flystate & AI
+    Msg     = cell(1,n.Topic); % messages for each topic
+    Time  	= cell(1,n.Topic); % time for flystate & AI
     for jj = 1:n.Topic
         Topic = select(Bag, 'Topic', topics{jj}); % get topics
-        Msg{jj} = readMessages(Topic,'DataFormat','struct'); % get messages
+        Msg{jj} = readMessages(Topic,'DataFormat',msgtypes(2)); % get messages
         Time{jj} = table2array(Topic.MessageList(:,1)); % get raw time
     end
     
