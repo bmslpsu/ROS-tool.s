@@ -1,44 +1,26 @@
-function [Vid,VidTime,FlyState,AI,FILES] = bag2mat(varargin)
-%% bag2mat: Parses file name data and returns tables with relevant information: saves in .mat file
+function [Vid,FlyState,AI] = bag2mat(root)
+%% bag2mat: parses file name data and returns tables with relevant information, saves in .mat file
 %   INPUTS:
-%       root        :   varargin=root , root directory containg .bag files >>> files will be saved in a folder titled "mat"
+%       root        :   root directory containg .bag files >>> files will be saved in a folder titled "mat"
 %                       inside this directory. If no input is given, will default to current folder.
 %   OUTPUTS:
 %       Vid         :   raw video data
-%       VidTime     :   normalized video time
 %       FlyState  	:   fly kinematic data
 %       AI          :   analog input voltages
-%       FILES    	:   filename listing
+%       VO          :   phidget output voltages
 %---------------------------------------------------------------------------------------------------------------------------------
 %   USAGE:
 %       [] = bag2mat()
 %           - opens dialog window to select files in current folder
 %       [] = bag2mat(root)
 %           - opens dialog window to select files in user defined root folder
-%       [] = bag2mat(root,'kinefly')
-%           - for kinefly export RGB video
 %---------------------------------------------------------------------------------------------------------------------------------
-% root = 'C:\Users\boc5244\Box Sync\Research\bags\TEST';
+% clear;clc
+% root = 'E:\Walking_Experiments\SOS';
 %---------------------------------------------------------------------------------------------------------------------------------
-% Allow user to set root directory & set video type
-version = 0; % default is raw video
+% Allow user to set root directory
 if nargin==0
     root = '';
-elseif nargin==1
-    root = varargin{1};
-elseif nargin==2
-    root = varargin{1};
-    if strcmp(varargin{2},'raw')
-        version = 0;
-    elseif strcmp(varargin{2},'kinefly') 
-        version = 1;
-    else
-        error('2nd input must be ''raw'' or ''kinefly''')        
-    end
-elseif nargin>2
-    error('Too many inputs')
-else
-    error('DEBUG')
 end
 
 % Set directory & get files
@@ -56,117 +38,152 @@ else
     error('Directory not created')
 end
 
-% Topic information: [video , flystate, analog in]
-if version
-    TopicList = {'/kinefly/image_output','/kinefly/flystate','/stimulus/ai'}';
-else
-    TopicList = {'/camera/image_raw','/kinefly/flystate','/stimulus/ai'}';
-end
-
-TopicType = {'CompressedImage','struct','struct'}';
+TopicList = ["/camera/image_raw" ; "/kinefly/image_output" ; "/kinefly/flystate" ; "/mcdaq/AI" ; ...
+             "/kinefly/flystate2phidgetsanalog/voltages" ; "/kinefly/flystate2phidgetsanalog/vcoeff"];
+         
 n.Topic = length(TopicList); % # of topics in .bag files
 
 W = waitbar(0/n.Files,'Saving data...');
 tic
 for kk = 1:n.Files
  	clear Vid VidTime FlyState AI Time Msg Topic Bag syncTime
+    fprintf('\nFile %i : %s \n', kk, FILES{kk})
+    
     % Get topics, messages, & time
-    Bag     = rosbag([PATH FILES{kk}]); % load bag
-    Msg     = cell(1,n.Topic); % messages for each topic
-    Time	= cell(1,n.Topic); % time for flystate & AI
+    Bag = rosbag([PATH FILES{kk}]); % load bag
+    topics = Bag.AvailableTopics.Properties.RowNames; % topic names
+    
+    disp('Extracting topics:')
+    disp(topics)
+    
+    Msg = cell(1,n.Topic); % messages for each topic
+    Time = cell(1,n.Topic); % time for flystate & AI
+    Data = struct('Topic', '', 'Msg', nan);
     for jj = 1:n.Topic
-        Topic = select(Bag, 'Topic', TopicList{jj}); % get topics
-        Msg{jj} = readMessages(Topic,'DataFormat',TopicType{jj}); % get messages
+        Topic = select(Bag, 'Topic', TopicList(jj)); % get topics       
+        Msg{jj} = readMessages(Topic,'DataFormat','struct'); % get messages
         Time{jj} = table2array(Topic.MessageList(:,1)); % get raw time
-    end
-    
-   	% Initialize variables
-    n.Frame  	= length(Msg{1}); % # of video frames
-    n.FState   	= length(Msg{2}); % # of fly states
-    FlyState	= nan(n.FState,6); % fly state cell (header: time,head,LW,RW)
-    if ~isempty(Msg{3})
-        n.AState  	= length(Msg{3}); % # of AI states
-        n.ACh    	= length(Msg{3}{1}.Channels); % # of AI channels
-        AI        	= nan(n.AState,n.ACh+1); % AI channel cell (header: time,ch0,ch1,ch2)
-    end
-
-    if ~isempty(Msg{1})
-        InitFrame = readImage(Msg{1}{1}); % first video frame
-        [n.PixelY,n.PixelX,n.bit] = size(InitFrame); % size of first video frame
-        Vid = uint8(nan(n.PixelY,n.PixelX,n.bit,n.Frame)); % video cell
-        
-        % Sync times
-        syncTime        = Time{1}(1); % sync times to vid frame
-        VidTime(:,1)    = Time{1} - syncTime; % video time
-    else
-        Vid = [];
-        VidTime = [];
-      	% Sync times
-        syncTime        = Time{2}(1); % sync times to vid frame
-    end
-    
-    FlyState(:,1)   = Time{2} - syncTime; % flystate time
-    if ~isempty(Msg{3})
-        AI(:,1) = Time{3} - syncTime; % AI time
-    end
-    
-    if ~isempty(Msg{3})
-        maxI = max([n.AState,n.Frame,n.FState]);
-    else
-        maxI = max([n.Frame,n.FState]);
-    end
-    
-	% Store messages in cells
-    for jj = 1:maxI % cycle through states
-        if ~isempty(Msg{3})
-            if jj<=n.AState
-                AI(jj,2:n.ACh+1) = Msg{3}{jj}.Voltages; % AI voltage
-            end
-        end
-        if jj<=n.Frame
-            Vid(:,:,:,jj) = readImage(Msg{1}{jj}); % video frame
-        end
-        if jj<=n.FState
-            if ~isempty(Msg{2}{jj}.Head.Angles)
-                FlyState(jj,2) = Msg{2}{jj}.Head.Angles;    % left wing angle
-            end
-            if ~isempty(Msg{2}{jj}.Left.Angles)
-                FlyState(jj,3) = Msg{2}{jj}.Left.Angles;    % right wing angle
-            end
-            if ~isempty(Msg{2}{jj}.Right.Angles)
-                FlyState(jj,4) = Msg{2}{jj}.Right.Angles;   % head angle
-            end
-            if ~isempty(Msg{2}{jj}.Abdomen.Angles)
-                FlyState(jj,5) = Msg{2}{jj}.Abdomen.Angles;	% abdomen angle
-            end
-            if ~isempty(Msg{2}{jj}.Aux.Freq)
-                FlyState(jj,6) = Msg{2}{jj}.Aux.Freq;       % WBF
-            end
+        Data(jj).Topic = TopicList(jj);
+        try
+            Data(jj).Msg = Msg{jj};
+        catch
+           warning('no data asociated with topic: %s', TopicList(jj)) 
         end
     end
     
-    % Put data in tables
-    FlyState = splitvars(table(FlyState));
-    FlyState.Properties.VariableNames = {'Time','Head','LWing','RWing','Abdomen','WBF'}; % fly state variables
-    if ~isempty(Msg{3})
-        AI = splitvars(table(AI));
-        chList = cell(n.ACh+1,1);
-        chList{1} = 'Time';
-        for jj = 1:n.ACh
-           chList{jj+1} = ['Ch' num2str(jj-1)];
+	% Get video messages
+    sync = Time{1}(1);
+    Vid = struct('Topic', '', 'Data', nan, 'Time', nan);
+    for jj = 1:2 % cycle through states
+        Vid(jj).Topic = TopicList(jj);
+        if ~isempty(Data(jj).Msg)
+            Data(jj).Points = length(Data(jj).Msg);
+            [frame,~] = struct2image(Data(jj).Msg{1});
+            dim = size(frame);
+            Vid(jj).Data = uint8(zeros(dim(1),dim(2),Data(jj).Points));
+            for ii = 1:Data(jj).Points
+                Vid(jj).Data(:,:,ii) = struct2image(Data(jj).Msg{ii});
+            end
+            Vid(jj).Time = Time{jj} - sync;
+        else
+            Vid(jj).Data = nan;
+            Vid(jj).Time = nan;
         end
-        AI.Properties.VariableNames = chList; % AI variables
-    else
-        AI = [];
     end
     
+	% Get flystate messages
+    for jj = 3 % cycle through states
+        if ~isempty(Data(jj).Msg)
+            Data(jj).Points = length(Data(jj).Msg);
+            FlyState = struct2flystate(Data(jj).Msg{1});
+            for ii = 2:Data(jj).Points
+                FlyState(ii,:) = struct2flystate(Data(jj).Msg{ii});
+            end
+            FlyState.Time = Time{jj} - sync;
+        else
+            FlyState = nan;
+        end
+    end
+    
+    % Get mcdaq AI messages
+    for jj = 4 % cycle through states
+        if ~isempty(Data(jj).Msg)
+            Data(jj).Points = length(Data(jj).Msg);
+            ch = Data(jj).Msg{1,1}.Channels;
+            n.AI = max(ch) + 1;
+            AI = nan(Data(jj).Points,n.AI);
+            for ii = 1:Data(jj).Points
+                AI(ii,ch+1) = Data(jj).Msg{ii}.Voltages;
+            end
+        	AI = splitvars(table(AI));
+            AI.Properties.VariableNames = repmat("ch",n.AI,1) + string(ch);
+            AI.Time = Time{jj} - sync;
+        else
+            rep = 10;
+            AI = splitvars(table(nan(1,rep)));
+            AI.Properties.VariableNames = repmat("ch",rep,1) + string((1:rep)'-1);
+            AI.Time = nan;
+        end
+        AI = movevars(AI,'Time','Before','ch0');
+    end
+    
+	% Get phidget output voltage messages
+    for jj = 5 % cycle through states
+        if ~isempty(Data(jj).Msg)
+            Data(jj).Points = length(Data(jj).Msg);
+            ch = Data(jj).Msg{1,1}.Channels;
+            n.VO = max(ch) + 1;
+            VO = nan(Data(jj).Points,n.AI);
+            for ii = 1:Data(jj).Points
+                VO(ii,ch+1) = Data(jj).Msg{ii}.Voltages;
+            end
+            VO = splitvars(table(VO));
+            VO.Properties.VariableNames = repmat("ch",n.VO,1) + string(ch);
+            VO.Time = Time{jj} - sync;
+        else
+            rep = 4;
+            VO = splitvars(table(nan(1,rep)));
+            VO.Properties.VariableNames = repmat("ch",rep,1) + string((1:rep)'-1);
+            VO.Time = nan;
+        end
+        VO = movevars(VO,'Time','Before','ch0');
+    end
+    
+%  	% Get phidget voltage coefficents
+%     for jj = 6 % cycle through states
+%         if ~isempty(Data(jj).Msg)
+%             Data(jj).Points = length(Data(jj).Msg);
+%             ch = Data(jj).Msg{1,1}.Channels;
+%             n.VC = max(ch) + 1;
+%             VC = nan(Data(jj).Points,n.AI);
+%             for ii = 1:Data(jj).Points
+%                 VC(ii,ch+1) = Data(jj).Msg{ii}.Voltages;
+%             end
+%            	VC = splitvars(table(VC));
+%             VC.Properties.VariableNames = repmat("ch",n.VC,1) + string(ch);
+%         end
+%     end
+       
     % Save .mat file in directory
     [~,filename,~] = fileparts(FILES{kk}); % get filename
-    dateIdx = strfind(filename,'201'); % will work until 2020
-    filename = filename(1:dateIdx-2); % remove date-time at end of filename   
-    save([PATH '\mat\' filename '.mat'] , 'Vid','VidTime','FlyState','AI','FILES','-v7.3') % save data to .mat file
-    waitbar(kk/n.Files,W,'Saving data...');
     
+    % Remove data from filename
+    try
+        dateIdx(1) = strfind(filename,'201'); % 2019
+    catch
+        dateIdx(1) = nan;
+    end
+    try
+        dateIdx(2) = strfind(filename,'202'); % 2020
+    catch
+        dateIdx(2) = nan;
+    end
+    dateIdx = dateIdx(~isnan(dateIdx));
+    filename = filename(1:dateIdx-2); % remove date-time at end of filename
+    
+    % Save Data
+    save([PATH '\mat\' filename '.mat'], 'Vid','FlyState','AI','VO','-v7.3') % save data to .mat file
+    waitbar(kk/n.Files,W,'Converting data...');
 end
 close(W)
 disp('DONE')
