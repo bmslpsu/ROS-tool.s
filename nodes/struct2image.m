@@ -26,5 +26,5 @@ img.Data                = msg.Data;
 % msg.Header.Stamp        = img_struct.Header.Stamp;
 % msg.Header.FrameId      = img_struct.Header.FrameId;
 
-frame = readImage(img);  
+frame = uint8(readImage(img));  
 end
