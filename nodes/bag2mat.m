@@ -43,7 +43,7 @@ TopicList = ["/camera/image_raw" ; "/kinefly/image_output" ; "/kinefly/flystate"
          
 n.Topic = length(TopicList); % # of topics in .bag files
 
-W = waitbar(0/n.Files,'Saving data...');
+W = waitbar(0/n.Files,'Converting data...');
 tic
 for kk = 1:n.Files
  	clear Vid VidTime FlyState AI Time Msg Topic Bag syncTime
@@ -181,15 +181,20 @@ for kk = 1:n.Files
     dateIdx = dateIdx(~isnan(dateIdx));
     filename = filename(1:dateIdx-2); % remove date-time at end of filename
     
+    rawVid = Vid(1).Data;
+    rawTime = Vid(1).Time;
+  	kinVid = Vid(2).Data;
+    kinTime = Vid(2).Time;
+    
     % Save Data
-    save([PATH '\mat\' filename '.mat'], 'Vid','FlyState','AI','VO','-v7.3') % save data to .mat file
+    save([PATH '\mat\' filename '.mat'], 'rawVid', 'rawTime','kinVid', 'kinTime', 'FlyState','AI','VO','-v7.3') % save data to .mat file
     waitbar(kk/n.Files,W,'Converting data...');
 end
 close(W)
 disp('DONE')
 toc
 beep on
-for kk = 1:5
+for kk = 1:5y
     beep
     pause(0.5)
 end
