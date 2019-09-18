@@ -194,7 +194,7 @@ close(W)
 disp('DONE')
 toc
 beep on
-for kk = 1:5y
+for kk = 1:5
     beep
     pause(0.5)
 end
