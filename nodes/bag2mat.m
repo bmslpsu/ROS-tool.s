@@ -60,7 +60,7 @@ for kk = 1:n.Files
     Time = cell(1,n.Topic); % time for flystate & AI
     Data = struct('Topic', '', 'Msg', nan);
     for jj = 1:n.Topic
-        Topic = select(Bag, 'Topic', TopicList(jj)); % get topics       
+        Topic = select(Bag, 'Topic', char(TopicList(jj))); % get topics       
         Msg{jj} = readMessages(Topic,'DataFormat','struct'); % get messages
         Time{jj} = table2array(Topic.MessageList(:,1)); % get raw time
         Data(jj).Topic = TopicList(jj);
@@ -116,12 +116,12 @@ for kk = 1:n.Files
                 AI(ii,ch+1) = Data(jj).Msg{ii}.Voltages;
             end
         	AI = splitvars(table(AI));
-            AI.Properties.VariableNames = repmat("ch",n.AI,1) + string(ch);
+            AI.Properties.VariableNames = cellstr(repmat("ch",n.AI,1) + string(ch));
             AI.Time = Time{jj} - sync;
         else
             rep = 10;
             AI = splitvars(table(nan(1,rep)));
-            AI.Properties.VariableNames = repmat("ch",rep,1) + string((1:rep)'-1);
+            AI.Properties.VariableNames = cellstr(repmat("ch",rep,1) + string((1:rep)'-1));
             AI.Time = nan;
         end
         AI = movevars(AI,'Time','Before','ch0');
@@ -138,12 +138,12 @@ for kk = 1:n.Files
                 VO(ii,ch+1) = Data(jj).Msg{ii}.Voltages;
             end
             VO = splitvars(table(VO));
-            VO.Properties.VariableNames = repmat("ch",n.VO,1) + string(ch);
+            VO.Properties.VariableNames = cellstr(repmat("ch",n.VO,1) + string(ch));
             VO.Time = Time{jj} - sync;
         else
             rep = 4;
             VO = splitvars(table(nan(1,rep)));
-            VO.Properties.VariableNames = repmat("ch",rep,1) + string((1:rep)'-1);
+            VO.Properties.VariableNames = cellstr(repmat("ch",rep,1) + string((1:rep)'-1));
             VO.Time = nan;
         end
         VO = movevars(VO,'Time','Before','ch0');
