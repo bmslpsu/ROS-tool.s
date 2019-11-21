@@ -4,7 +4,12 @@ function [Vid,FlyState,AI] = bag2mat(root)
 %       root        :   root directory containg .bag files >>> files will be saved in a folder titled "mat"
 %                       inside this directory. If no input is given, will default to current folder.
 %   OUTPUTS:
-%       Vid         :   raw video data
+%       rawVid    	:   raw video data
+%       rawTIme    	:   raw video time data
+%       kinVid    	:   kinefly video data
+%       kinTIme    	:   kinefly video time data
+%       usbVid    	:   usb video data
+%       usbTIme    	:   usb video time data
 %       FlyState  	:   fly kinematic data
 %       AI          :   analog input voltages
 %       VO          :   phidget output voltages
@@ -38,7 +43,7 @@ else
     error('Directory not created')
 end
 
-TopicList = ["/camera/image_raw" ; "/kinefly/image_output" ; "/kinefly/flystate" ; "/mcdaq/AI" ; ...
+TopicList = ["/camera/image_raw" ; "/kinefly/image_output" ; "/usb_cam/image_raw" ; "/kinefly/flystate" ; "/mcdaq/AI" ; ...
              "/kinefly/flystate2phidgetsanalog/voltages" ; "/kinefly/flystate2phidgetsanalog/vcoeff"];
          
 n.Topic = length(TopicList); % # of topics in .bag files
@@ -74,15 +79,19 @@ for kk = 1:n.Files
 	% Get video messages
     sync = Time{1}(1);
     Vid = struct('Topic', '', 'Data', nan, 'Time', nan);
-    for jj = 1:2 % cycle through states
+    for jj = 1:3 % cycle through states
         Vid(jj).Topic = TopicList(jj);
         if ~isempty(Data(jj).Msg)
             Data(jj).Points = length(Data(jj).Msg);
             [frame,~] = struct2image(Data(jj).Msg{1});
             dim = size(frame);
-            Vid(jj).Data = uint8(zeros(dim(1),dim(2),Data(jj).Points));
+            if length(dim)==2
+                dim(3) = 1;
+            end
+            
+            Vid(jj).Data = uint8(zeros(dim(1),dim(2),dim(3),Data(jj).Points));
             for ii = 1:Data(jj).Points
-                Vid(jj).Data(:,:,ii) = struct2image(Data(jj).Msg{ii});
+                Vid(jj).Data(:,:,:,ii) = struct2image(Data(jj).Msg{ii});
             end
             Vid(jj).Time = Time{jj} - sync;
         else
@@ -92,7 +101,7 @@ for kk = 1:n.Files
     end
     
 	% Get flystate messages
-    for jj = 3 % cycle through states
+    for jj = 4 % cycle through states
         if ~isempty(Data(jj).Msg)
             Data(jj).Points = length(Data(jj).Msg);
             FlyState = struct2flystate(Data(jj).Msg{1});
@@ -106,7 +115,7 @@ for kk = 1:n.Files
     end
     
     % Get mcdaq AI messages
-    for jj = 4 % cycle through states
+    for jj = 5 % cycle through states
         if ~isempty(Data(jj).Msg)
             Data(jj).Points = length(Data(jj).Msg);
             ch = Data(jj).Msg{1,1}.Channels;
@@ -128,7 +137,7 @@ for kk = 1:n.Files
     end
     
 	% Get phidget output voltage messages
-    for jj = 5 % cycle through states
+    for jj = 6 % cycle through states
         if ~isempty(Data(jj).Msg)
             Data(jj).Points = length(Data(jj).Msg);
             ch = Data(jj).Msg{1,1}.Channels;
@@ -150,7 +159,7 @@ for kk = 1:n.Files
     end
     
 %  	% Get phidget voltage coefficents
-%     for jj = 6 % cycle through states
+%     for jj = 7 % cycle through states
 %         if ~isempty(Data(jj).Msg)
 %             Data(jj).Points = length(Data(jj).Msg);
 %             ch = Data(jj).Msg{1,1}.Channels;
@@ -185,9 +194,12 @@ for kk = 1:n.Files
     rawTime = Vid(1).Time;
   	kinVid = Vid(2).Data;
     kinTime = Vid(2).Time;
+  	usbVid = Vid(3).Data;
+    usbTime = Vid(3).Time;
     
     % Save Data
-    save([PATH '\mat\' filename '.mat'], 'rawVid', 'rawTime','kinVid', 'kinTime', 'FlyState','AI','VO','-v7.3') % save data to .mat file
+    save([PATH '\mat\' filename '.mat'], 'rawVid', 'rawTime','kinVid', 'kinTime', ...
+        'usbVid', 'usbTime','FlyState','AI','VO','-v7.3') % save data to .mat file
     waitbar(kk/n.Files,W,'Converting data...');
 end
 close(W)
