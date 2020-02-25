@@ -13,16 +13,17 @@ function [Vid,FlyState,AI] = bag2mat(root)
 %       FlyState  	:   fly kinematic data
 %       AI          :   analog input voltages
 %       VO          :   phidget output voltages
-%---------------------------------------------------------------------------------------------------------------------------------
+%
 %   USAGE:
 %       [] = bag2mat()
 %           - opens dialog window to select files in current folder
 %       [] = bag2mat(root)
 %           - opens dialog window to select files in user defined root folder
-%---------------------------------------------------------------------------------------------------------------------------------
+%
 % clear;clc
 % root = 'E:\Walking_Experiments\SOS';
-%---------------------------------------------------------------------------------------------------------------------------------
+%
+
 % Allow user to set root directory
 if nargin==0
     root = '';
